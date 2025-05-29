@@ -58,46 +58,91 @@ app.post('/api/parse', (req, res) => {
 
 
 // Video upload
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, `video-${Date.now()}.webm`);
-  }
-});
-const upload = multer({ storage });
+// const storage = multer.diskStorage({
+//   destination: 'uploads/',
+//   filename: (req, file, cb) => {
+//     cb(null, `video-${Date.now()}.webm`);
+//   }
+// });
+// const upload = multer({ storage });
 
-app.post('/api/upload-video', upload.single('video'), async (req, res) => {
+    const cloudinary = require('cloudinary').v2;
+    const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+    // ✅ Cloudinary configuration
+    cloudinary.config({
+      cloud_name: 'dvudrqw4v',
+      api_key: '156374349868656',
+      api_secret: 'Qlhqwt5IusWf5W5iXiqnmyB3kMk'
+    });
+
+    // ✅ Multer + Cloudinary storage
+    const storage = new CloudinaryStorage({
+      cloudinary: cloudinary,
+      params: {
+        folder: 'nirbhik-videos', // folder name in your Cloudinary account
+        resource_type: 'video',
+        format: 'webm',
+        public_id: (req, file) => 'video-' + Date.now()
+      }
+    });
+
+    const upload = multer({ storage });
+
+  app.post('/api/upload-video', upload.single('video'), async (req, res) => {
   try {
     const { name, gender, dob, address } = req.body;
 
-    const fileName = `video-${Date.now()}.webm`;
-    const targetPath = path.join(__dirname, 'uploads', fileName);
-
-    fs.rename(req.file.path, targetPath, async (err) => {
-      if (err) {
-        console.error('File move error:', err);
-        return res.sendStatus(500);
-      }
-
-      // Save to MongoDB
-      const newUser = new User({
-        name,
-        gender,
-        dob,
-        address,
-        videoPath: `/uploads/${fileName}`
-      });
-
-      await newUser.save();
-      console.log('✅ Saved to MongoDB:', newUser);
-
-      res.send({ message: 'Video uploaded and user data saved ✅' });
+    const newUser = new User({
+      name,
+      gender,
+      dob,
+      address,
+      videoPath: req.file.path // this is now the Cloudinary video URL ✅
     });
+
+    await newUser.save();
+    console.log('✅ Saved to MongoDB:', newUser);
+
+    res.send({ message: 'Video uploaded and user data saved ✅' });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Upload error:", err);
     res.status(500).send({ error: 'Failed to upload and save data' });
   }
 });
+
+// app.post('/api/upload-video', upload.single('video'), async (req, res) => {
+//   try {
+//     const { name, gender, dob, address } = req.body;
+
+//     const fileName = `video-${Date.now()}.webm`;
+//     const targetPath = path.join(__dirname, 'uploads', fileName);
+
+//     fs.rename(req.file.path, targetPath, async (err) => {
+//       if (err) {
+//         console.error('File move error:', err);
+//         return res.sendStatus(500);
+//       }
+
+//       // Save to MongoDB
+//       const newUser = new User({
+//         name,
+//         gender,
+//         dob,
+//         address,
+//         videoPath: `/uploads/${fileName}`
+//       });
+
+//       await newUser.save();
+//       console.log('✅ Saved to MongoDB:', newUser);
+
+//       res.send({ message: 'Video uploaded and user data saved ✅' });
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send({ error: 'Failed to upload and save data' });
+//   }
+// });
 
 
 // Start server
